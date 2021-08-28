@@ -72,7 +72,7 @@ async fn bypass_clyde(web::Query(info): web::Query<QueryParameters>) -> HttpResp
         .expect("Gif Creation Error");
     // println!("create_gif success");
     HttpResponse::Ok()
-        .header("Content-Type", "image/gif")
+        .content_type("image/gif")
         .header("Cache-Control", "max-age=31536000")
         .body(gif)
 }

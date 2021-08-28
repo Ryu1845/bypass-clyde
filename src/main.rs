@@ -20,8 +20,7 @@ fn create_gif(image_raw: image::RgbaImage) -> Result<Vec<u8>, anyhow::Error> {
     // println!("Empty frame created");
 
     let mut image_pixels = image_raw.into_raw();
-    let mut image_frame = gif::Frame::from_rgba_speed(width as u16, height as u16, &mut *image_pixels, 30);
-    image_frame.delay = 30000;
+    let image_frame = gif::Frame::from_rgba_speed(width as u16, height as u16, &mut *image_pixels, 30);
     // println!("Image Frame Created");
 
     let frames: [gif::Frame; 2] = [empty_frame, image_frame];

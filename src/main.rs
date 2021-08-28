@@ -8,24 +8,36 @@ pub struct QueryParameters {
 }
 
 fn create_gif(image_raw: image::RgbaImage) -> Result<Vec<u8>, image::ImageError> {
-    let empty_image = image::RgbaImage::new(image_raw.width(), image_raw.height());
-    let empty_frame = image::Frame::new(empty_image);
+    // println!("Width: {}\nHeight: {}", image_raw.width(), image_raw.height());
+    let width = image_raw.width();
+    let height = image_raw.height();
+    let size = width * height * 4;
 
-    let duration = std::time::Duration::from_secs(300);
-    let delay = image::Delay::from_saturating_duration(duration);
-    let image_frame = image::Frame::from_parts(image_raw, 0, 0, delay);
+    let mut empty_image = vec![0; size as usize];
+    let empty_frame = gif::Frame::from_rgba_speed(width as u16, height as u16, &mut *empty_image, 30);
+    // println!("Empty frame created");
 
-    let frames: [image::Frame; 2] = [empty_frame, image_frame];
-    let mut gif: Vec<u8> = Vec::new();
+    let mut image_pixels = image_raw.into_raw();
+    let image_frame = gif::Frame::from_rgba_speed(width as u16, height as u16, &mut *image_pixels, 30);
+    // println!("Image Frame Created");
+
+    let frames: [gif::Frame; 2] = [empty_frame, image_frame];
+    let mut gif = Vec::new();
     {
-        let mut encoder = image::codecs::gif::GifEncoder::new(&mut gif);
-        encoder.encode_frames(frames)
-            .expect("Encoding Error");
+        let mut encoder = gif::Encoder::new(&mut gif, width as u16, height as u16, &[])
+            .expect("Encoder Creation Error");
+        // println!("Encoder created");
+        for frame in &frames {
+            encoder.write_frame(frame)
+                .expect("Encoding Error");
+        }
+        // println!("Encoding Success");
     }
     Ok(gif)
 }
 
 async fn get_image(url: &str) -> Result<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>, awc::error::SendRequestError> {
+    // println!("Image URL: {}", url);
     let client = client::Client::new();
     let response = client
         .get(url)
@@ -34,12 +46,16 @@ async fn get_image(url: &str) -> Result<image::ImageBuffer<image::Rgba<u8>, Vec<
         .body()
         .await
         .expect("Request Error");
+    // println!("Request Success");
     let data = response.as_ref();
 
-    let reader = image::io::Reader::new(Cursor::new(data));
+    let reader = image::io::Reader::new(Cursor::new(data))
+        .with_guessed_format()
+        .expect("Format Error");
     let dyn_image = reader.decode()
         .expect("Decoding Error");
     let image = dyn_image.into_rgba8();
+    // println!("Decoding Success");
     Ok(image)
 }
 
@@ -48,8 +64,10 @@ async fn bypass_clyde(web::Query(info): web::Query<QueryParameters>) -> HttpResp
     let image = get_image(&info.url)
         .await
         .expect("Decoding Error");
+    // println!("get_image success");
     let gif = create_gif(image)
         .expect("Gif Creation Error");
+    // println!("create_gif success");
     HttpResponse::Ok().body(gif)
 }
 

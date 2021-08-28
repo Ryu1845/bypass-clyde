@@ -77,7 +77,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .service(bypass_clyde)
     })
-    .bind("127.0.0.1:8080")?
+    .bind("127.0.0.1:23423")?
     .run()
     .await
 }

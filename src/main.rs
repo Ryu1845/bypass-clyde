@@ -1,4 +1,5 @@
-use actix_web::{client, get, web, middleware, App, HttpResponse, HttpServer};
+use actix_web::{get, web, middleware, App, HttpResponse, HttpServer};
+use awc::Client;
 use serde::Deserialize;
 use std::io::Cursor;
 use env_logger::Env;
@@ -39,12 +40,13 @@ fn create_gif(image_raw: image::RgbaImage) -> Result<Vec<u8>, image::ImageError>
 
 async fn get_image(url: &str) -> Result<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>, awc::error::SendRequestError> {
     // println!("Image URL: {}", url);
-    let client = client::Client::new();
+    let client = Client::new();
     let response = client
         .get(url)
         .send()
         .await?
         .body()
+        .limit(20_000_000)
         .await
         .expect("Request Error");
     // println!("Request Success");

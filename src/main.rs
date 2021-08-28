@@ -1,4 +1,4 @@
-use actix_web::{get, web, middleware, App, HttpResponse, HttpServer};
+use actix_web::{App, HttpResponse, HttpServer, get, middleware, web};
 use awc::Client;
 use serde::Deserialize;
 use std::io::Cursor;
@@ -9,7 +9,7 @@ pub struct QueryParameters {
     url: String,
 }
 
-fn create_gif(image_raw: image::RgbaImage) -> Result<Vec<u8>, image::ImageError> {
+fn create_gif(image_raw: image::RgbaImage) -> Result<Vec<u8>, anyhow::Error> {
     // println!("Width: {}\nHeight: {}", image_raw.width(), image_raw.height());
     let width = image_raw.width();
     let height = image_raw.height();
@@ -26,55 +26,58 @@ fn create_gif(image_raw: image::RgbaImage) -> Result<Vec<u8>, image::ImageError>
     let frames: [gif::Frame; 2] = [empty_frame, image_frame];
     let mut gif = Vec::new();
     {
-        let mut encoder = gif::Encoder::new(&mut gif, width as u16, height as u16, &[])
-            .expect("Encoder Creation Error");
+        let mut encoder = gif::Encoder::new(&mut gif, width as u16, height as u16, &[])?;
         // println!("Encoder created");
         for frame in &frames {
-            encoder.write_frame(frame)
-                .expect("Encoding Error");
+            encoder.write_frame(frame)?;
         }
         // println!("Encoding Success");
     }
     Ok(gif)
 }
 
-async fn get_image(url: &str) -> Result<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>, awc::error::SendRequestError> {
-    // println!("Image URL: {}", url);
-    let client = Client::new();
-    let response = client
-        .get(url)
-        .send()
-        .await?
-        .body()
-        .limit(20_000_000)
-        .await
-        .expect("Request Error");
-    // println!("Request Success");
-    let data = response.as_ref();
-
-    let reader = image::io::Reader::new(Cursor::new(data))
-        .with_guessed_format()
-        .expect("Format Error");
-    let dyn_image = reader.decode()
-        .expect("Decoding Error");
+fn decode_image(image_raw: Vec<u8>) -> Result<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>, image::error::ImageError>{
+    let reader = image::io::Reader::new(Cursor::new(image_raw))
+        .with_guessed_format()?;
+    let dyn_image = reader.decode()?;
     let image = dyn_image.into_rgba8();
     // println!("Decoding Success");
     Ok(image)
 }
 
+async fn get_image(url: &str) -> Result<Vec<u8>, actix_web::Error> {
+    // println!("Image URL: {}", url);
+    let client = Client::new();
+    let mut response = client
+        .get(url)
+        .send()
+        .await?;
+    let response_body = response
+        .body()
+        .limit(20_000_000)
+        .await?;
+    // println!("Request Success");
+    let data = response_body.as_ref();
+    Ok(data.to_owned())
+}
+
 #[get("/")]
-async fn bypass_clyde(web::Query(info): web::Query<QueryParameters>) -> HttpResponse {
-    let image = get_image(&info.url)
-        .await
-        .expect("Decoding Error");
+async fn bypass_clyde(web::Query(info): web::Query<QueryParameters>) -> Result<HttpResponse, actix_web::Error> {
+    println!("{}", &info.url);
+    let image_raw = get_image(&info.url)
+        .await?;
     // println!("get_image success");
+    let image = decode_image(image_raw)
+        .map_err(|e| actix_web::error::ErrorBadRequest(e.to_string()))?;
     let gif = create_gif(image)
-        .expect("Gif Creation Error");
+        .map_err(|e| actix_web::error::ErrorBadRequest(e.to_string()))?;
     // println!("create_gif success");
-    HttpResponse::Ok()
-        .content_type("image/gif")
-        .header("Cache-Control", "max-age=31536000")
-        .body(gif)
+    Ok(
+        HttpResponse::Ok()
+            .content_type("image/gif")
+            .header("Cache-Control", "max-age=31536000")
+            .body(gif)
+    )
 }
 
 #[actix_web::main]

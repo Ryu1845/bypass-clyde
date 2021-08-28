@@ -1,0 +1,14 @@
+[package]
+name = "bypass-clyde-rust"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = "1.0.129"
+actix-web = "3"
+awc = "2.0.3"
+reqwest = "0.11.4"
+bytes = "1.0.1"
+image = "0.23.14"

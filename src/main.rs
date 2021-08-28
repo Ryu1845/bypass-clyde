@@ -63,8 +63,14 @@ async fn get_image(url: &str) -> Result<Vec<u8>, actix_web::Error> {
 
 #[get("/")]
 async fn bypass_clyde(web::Query(info): web::Query<QueryParameters>) -> Result<HttpResponse, actix_web::Error> {
-    println!("{}", &info.url);
-    let image_raw = get_image(&info.url)
+    let url : String;
+    if info.url.ends_with(".gif") {
+        let len_url = &info.url.len();
+        url = info.url[..len_url - 4].to_string();
+    } else {
+        url = info.url;
+    };
+    let image_raw = get_image(&url)
         .await?;
     // println!("get_image success");
     let image = decode_image(image_raw)

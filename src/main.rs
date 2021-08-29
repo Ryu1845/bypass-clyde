@@ -81,8 +81,9 @@ async fn bypass_clyde(web::Query(info): web::Query<QueryParameters>) -> Result<H
     Ok(
         HttpResponse::Ok()
             .content_type("image/gif")
-            .header("Cache-Control", "max-age=31536000")
-            .header("Accept-Ranges", "bytes")
+            .header(actix_web::http::header::CACHE_CONTROL, "image/gif")
+            .header(actix_web::http::header::ACCEPT_RANGES, "bytes")
+            .keep_alive()
             .body(gif)
     )
 }
